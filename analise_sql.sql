@@ -1,13 +1,13 @@
 -- Localização de chamados do 1746
 
---
-Quantos chamados foram abertos no dia 01/04/2023?
+---
+-- Quantos chamados foram abertos no dia 01/04/2023?
 select 
   count(id_chamado) as quantidade_chamados,
   cast(data_inicio as date) data_abertura
 from datario.administracao_servicos_publicos.chamado_1746
 where cast(data_inicio as date) = cast("01/04/2023" as date format "dd/mm/yyyy")
-group by cast(data_inicio as date);
+group by data_abertura;
 ---
 
 ---
@@ -19,7 +19,7 @@ select
   count(id_chamado) as quantidade_chamados
 from datario.administracao_servicos_publicos.chamado_1746
 where cast(data_inicio as date) = cast("01/04/2023" as date format "dd/mm/yyyy")
-group by cast(data_inicio as date), id_tipo, tipo
+group by id_tipo, tipo
 order by quantidade_chamados desc
 limit 1;
 ---
@@ -35,7 +35,7 @@ from datario.administracao_servicos_publicos.chamado_1746 as chamados
 left join datario.dados_mestres.bairro as bairros on
   chamados.id_bairro = bairros.id_bairro
 where cast(chamados.data_inicio as date) = cast("01/04/2023" as date format "dd/mm/yyyy")
-group by cast(chamados.data_inicio as date), chamados.id_bairro, bairros.nome
+group by chamados.id_bairro, bairros.nome
 order by quantidade_chamados desc
 limit 3;
 ---
@@ -50,7 +50,7 @@ from datario.administracao_servicos_publicos.chamado_1746 as chamados
 left join datario.dados_mestres.bairro as bairros on
   chamados.id_bairro = bairros.id_bairro
 where cast(chamados.data_inicio as date) = cast("01/04/2023" as date format "dd/mm/yyyy")
-group by cast(chamados.data_inicio as date), bairros.subprefeitura
+group by bairros.subprefeitura
 order by quantidade_chamados desc
 limit 1;
 ---
@@ -95,6 +95,7 @@ group by id_tipo, id_subtipo, tipo, subtipo
 
 -- Chamados do 1746 em grandes eventos
 
+---
 -- Quantos chamados com o subtipo "Perturbação do sossego" foram abertos desde 01/01/2022 até 31/12/2023 (incluindo extremidades)?
 
 select 
@@ -155,12 +156,22 @@ limit 1;
 
 -- Médias diárias durante eventos específicos
 (select 
-  eventos.evento,
-  count(chamados.id_chamado) / count(distinct cast(chamados.data_inicio as date)) as media_diaria_chamados,
+  eventos.evento as periodo,
+  count(chamados.id_chamado) / count(distinct cast(chamados.data_inicio as date)) / total.media_diaria_chamados as proporcao,
   count(chamados.id_chamado) as quantidade_chamados,
   count(distinct cast(chamados.data_inicio as date)) as quantidade_dias
 from 
-  datario.administracao_servicos_publicos.chamado_1746 as chamados
+  datario.administracao_servicos_publicos.chamado_1746 as chamados, 
+  (
+    select 
+      'Média Total 2022-2023' as periodo,
+      count(id_chamado) / count(distinct cast(data_inicio as date)) as media_diaria_chamados,
+      count(id_chamado) as quantidade_chamados,
+      count(distinct cast(data_inicio as date)) as quantidade_dias
+    from datario.administracao_servicos_publicos.chamado_1746
+    where subtipo = 'Perturbação do sossego'
+      and data_inicio between '2022-01-01' and '2023-12-31'
+    ) as total
 join 
   datario.turismo_fluxo_visitantes.rede_hoteleira_ocupacao_eventos as eventos
 on 
@@ -168,14 +179,14 @@ on
 where 
   eventos.evento in ('Carnaval', 'Reveillon', 'Rock in Rio')
   and chamados.subtipo = 'Perturbação do sossego'
-group by eventos.evento)
+group by eventos.evento, total.media_diaria_chamados)
 
 union all
 
 -- Média diária no período total
 (select 
   'Média Total 2022-2023' as periodo,
-  count(id_chamado) / count(distinct cast(data_inicio as date)) as media_diaria_chamados,
+  1 as proporcao,
   count(id_chamado) as quantidade_chamados,
   count(distinct cast(data_inicio as date)) as quantidade_dias
 from datario.administracao_servicos_publicos.chamado_1746
